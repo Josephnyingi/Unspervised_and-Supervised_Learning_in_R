@@ -1,0 +1,420 @@
+---
+title: "Customer Segmentation"
+author: "Joseph"
+date: "1/17/2021"
+output: html_document
+---
+
+## Defining the Research Problem
+### Specifying the Research Question
+The goal of this analysis is to use past retail data to understand customers' behavior and learn the characteristics of various customer groups.
+
+## Defining the Metric for Success
+The project will be considered a success when we are able to perform clustering and segment customers into various groups. The analysis should also compare K-Means Clustering vs Hierarchial Clustering and provide the strengths and limitations of the two approaches in the context of the project/dataset.
+
+## Understanding the Context
+Kira Plastinina is a Russian brand that is sold through a defunct chain of retail stores in Russia, Ukraine, Kazakhstan, Belarus, China, Philippines, and Armenia. The brand’s Sales and Marketing team would like to understand their customer’s behavior from data that they have collected over the past year. More specifically, they would like to learn the characteristics of customer groups.
+
+This analysis aims to use unsupervised learning techniques in R to respond to the research question. More specifically, we will perform clustering to develop insights from analysis and visualizations. Upon implementation, we shall also provide comparisons between two approaches i.e. K-Means clustering vs Hierarchical clustering highlighting the strengths and limitations of each approach in the context of the analysis. The findings should help inform the team in formulating the marketing and sales strategies of the brand.
+
+## Recording the Exprimental Design
+Below are the steps that will be followed in this analysis in order to respond to the research question satisfactorily:
+
+Read the Data
+Check the Data
+Perform Data Cleaning
+Perform Exploratory Data Analysis (Univariate, Bivariate & Multivariate)
+Implement the Solution
+Challenge the Solution
+
+## Data Relevance
+The dataset used in this analysis consists of 10 numerical and 8 categorical attributes. The 'Revenue' attribute can be used as the class label.
+"Administrative", "Administrative Duration", "Informational", "Informational Duration", "Product Related" and "Product Related Duration" represents the number of different types of pages visited by the visitor in that session and total time spent in each of these page categories. The values of these features are derived from the URL information of the pages visited by the user and updated in real-time when a user takes an action, e.g. moving from one page to another.
+The "Bounce Rate", "Exit Rate" and "Page Value" features represent the metrics measured by "Google Analytics" for each page in the e-commerce site.
+The value of the "Bounce Rate" feature for a web page refers to the percentage of visitors who enter the site from that page and then leave ("bounce") without triggering any other requests to the analytics server during that session.
+The value of the "Exit Rate" feature for a specific web page is calculated as for all pageviews to the page, the percentage that was the last in the session.
+The "Page Value" feature represents the average value for a web page that a user visited before completing an e-commerce transaction.
+The "Special Day" feature indicates the closeness of the site visiting time to a specific special day (e.g. Mother’s Day, Valentine's Day) in which the sessions are more likely to be finalized with the transaction. The value of this attribute is determined by considering the dynamics of e-commerce such as the duration between the order date and delivery date. For example, for Valentina’s day, this value takes a nonzero value between February 2 and February 12, zero before and after this date unless it is close to another special day, and its maximum value of 1 on February 8.
+The dataset also includes the operating system, browser, region, traffic type, visitor type as returning or new visitor, a Boolean value indicating whether the date of the visit is weekend, and month of the year.
+
+## Importing Relevant Libraries
+```{r}
+# Installing relevant packages
+#install.packages("data.table", dependencies=TRUE)
+#install.packages("ggplot2")
+#install.packages("tidyverse")
+#install.packages("reshape",dependencies = TRUE)
+# Installing relevant libraries
+
+library("data.table")
+library("ggplot2")
+library("tidyverse")
+library("reshape")
+```
+# 1.Reading the Data
+```{r}
+# Reading the data into R from the csv file
+retail <- read.csv('online_shoppers_intention.csv')
+retail
+
+```
+# 2.Checking the Data
+```{r}
+# Checking the top 6 records 
+
+head(retail)
+```
+```{r}
+# Checking the bottom 6 records
+
+tail(retail)
+```
+```{r}
+# Checking the total number of records
+
+nrow(retail)
+```
+```{r}
+# Checking the total number of columns
+
+ncol(retail)
+```
+```{r}
+# Checking all column names
+
+names(retail)
+```
+```{r}
+# Checking the data types of each column
+
+str(retail)
+```
+```{r}
+# Checking the number of unique values in each column
+
+lengths(lapply(retail, unique))
+```
+```{r}
+# Checking the summary of the data
+
+summary(retail)
+```
+
+```{r}
+# Checking the existence of missing values
+
+colSums(is.na(retail))
+```
+# 2. Data Cleaning
+Missing Data
+```{r}
+# Checking the existence of missing values
+
+colSums(is.na(retail))
+```
+There are a few missing values in several columns.
+```{r}
+# Dropping missing values
+
+retail = na.omit(retail)
+```
+```{r}
+# Checking for duplicate values
+
+duplicated_rows <- retail[duplicated(retail),]
+duplicated_rows
+```
+These do not seem like true duplicates so will retain them in the analysis.
+### Outliers
+```{r}
+# Creating a variable with only numeric attributes
+
+retail_num <- retail[ , unlist(lapply(retail, is.numeric))]
+```
+```{r}
+# Plotting boxplots to check for outliers
+
+options(repr.plot.width = 16, repr.plot.height = 20)
+ggplot(melt(retail_num), aes(variable, value))+ geom_boxplot() + facet_wrap(~variable, scale="free")
+```
+From the above graph, all numeric attributes have outliers but we will not drop them since they are valid observations.
+# 3.Exploratory Data Analysis
+## Univariate Analysis
+In this section, we will investigate each variable individually. The steps here include calculating and interpreting measures of central tendency (mode, median, mean) as well as computing and explaining the range, the interquartile range, the standard deviation, variance, skewness, and kurtosis.
+```{r}
+#install.packages("fBasics", dependencies = TRUE)
+library("fBasics")
+```
+```{r}
+# Calculating the mean for all numeric columns
+
+colMeans(retail_num)
+```
+```{r}
+# Calculating the mode for all numeric columns
+
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+lapply(retail_num,FUN=getmode)
+```
+Most popular region is 1 and the most popular browser used by customers is 2.
+```{r}
+# Calculating the minimum value for all numeric columns
+
+colMins(retail_num)
+```
+```{r}
+# Calculating the maximum value for all numeric columns
+
+colMaxs(retail_num)
+```
+```{r}
+# Checking the range for all numeric columns
+
+lapply(retail_num,FUN=range)
+```
+```{r}
+# Calculating the quantiles for all numeric columns
+
+lapply(retail_num,FUN=quantile)
+```
+```{r}
+# Calculating the variance for all numeric columns
+
+colVars(retail_num)
+```
+```{r}
+# Calculating the standard deviation for all numeric columns
+
+colStdevs(retail_num)
+```
+```{r}
+# Calculating the kurtosis for all numeric columns
+
+colKurtosis(retail_num)
+```
+Most numeric attributes have more values in the distribution tails and more values close to the mean i.e. sharply peaked with heavy tails. This is illustrated by the large kurtosis values.
+```{r}
+# Calculating the skewness for all numeric columns
+
+colSkewness(retail_num)
+```
+```{r}
+# Plotting histograms to check distributions of numeric attributes
+
+par(mfrow=c(4,4))
+colnames <- dimnames(retail_num)[[2]]
+for (i in 1:10) {
+    hist(retail_num[,i], main=colnames[i], probability=TRUE, col="red", border="black")
+}
+```
+```{r}
+# Density plot
+par(mfrow=c(4, 4))
+colnames <- dimnames(retail_num)[[2]]
+for (i in 1:10) {
+    d <- density(retail_num[,i])
+    plot(d, type="n", main=colnames[i])
+    polygon(d, col="red", border="gray")
+}
+```
+```{r}
+head(retail)
+```
+```{r}
+# Bar plot of categorical attributes
+
+par(mfrow=c(2,2))
+colnames <- dimnames(retail)[[2]]
+barplot(sort(table(retail$Month), decreasing=T),main='Month')
+barplot(sort(table(retail$VisitorType), decreasing=T), main = 'Visitor Type')
+barplot(sort(table(retail$Weekend), decreasing=T), main = 'Weekend vs Weekday')
+barplot(sort(table(retail$Revenue), decreasing=T), main = 'Revenue Class')
+```
+## Bivariate Analysis
+In this section, we investigate the relationship of different variables by creating relevant visualizations such as scatter plots, correlation matrix and Pearson correlation coefficient.
+```{r}
+# Checking the correlation coefficients for numeric variables
+# install.packages("ggcorrplot")
+library(ggcorrplot)
+corr = round(cor(select_if(retail_num, is.numeric)), 2)
+ggcorrplot(corr, hc.order = T, ggtheme = ggplot2::theme_gray,
+   colors = c("#6D9EC1", "white", "#E46726"), lab = T)
+```
+The only strong correlation is between product related vs product related duration, administrative vs administrative duration , informational vs informational duration and bounce rates vs exit rates.
+```{r}
+# Scatter plot to compare product related vs product related duration
+
+plot(retail$ProductRelated, retail$ProductRelated_Duration, xlab="Product Related", ylab="Product Related Duration")
+```
+```{r}
+# Scatter plot to compare bounce rates and exit rates
+
+plot(retail$BounceRates, retail$ExitRates, xlab="Bounce Rates", ylab="Exit Rates")
+```
+```{r}
+# Comparing exit rates by revenue category
+
+ggplot(data = retail,aes(x = Revenue, y = ExitRates, group = Revenue)) +
+  geom_boxplot() +
+  theme(panel.background = element_rect(fill = "gray"))
+```
+Most users who brought in revenue had relatively lower exit rates.
+```{r}
+# Comparing revenue generation by visitor type
+
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = VisitorType, fill = Revenue), position = "dodge")
+```
+Most customers are returning clients. There's a disproportionately large number of returning customers who do not bring in sales revenue compared to new customers.
+```{r}
+
+# Comparing revenue generation by weekday type
+
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = Weekend, fill = Revenue), position = "dodge")
+```
+```{r}
+# Comparing revenue generation by region
+
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = Region, fill = Revenue), position = "dodge")
+```
+```{r}
+# Comparing revenue generation by month
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = Month, fill = Revenue), position = "dodge")
+```
+```{r}
+# Comparing revenue generation by traffic type
+
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = TrafficType, fill = Revenue), position = "dodge")
+```
+```{r}
+# Comparing revenue generation by special day status
+
+ggplot(data = retail) + 
+  geom_bar(mapping = aes(x = SpecialDay, fill = Revenue), position = "dodge")
+```
+### Multivariate Analysis
+```{r}
+# Converting categorical attributes to numeric data type
+
+retail$Month <- as.integer(as.factor(retail$Month))
+retail$VisitorType <- as.integer(as.factor(retail$VisitorType))
+retail$Weekend <- as.integer(as.factor(retail$Weekend))
+```
+```{r}
+# Applying PCA  to dataset
+
+retail.pca <- prcomp(retail[,c(1:18)], center = TRUE, scale. = TRUE)
+summary(retail.pca)
+```
+With only 9 components, the variance explained is ~74%.
+# 4. Implementing the Solution
+### K-Means Clustering
+```{r}
+# Converting the target variable to numeric data type
+
+retail$Revenue <- as.integer(as.factor(retail$Revenue))
+
+```
+
+```{r}
+# Normalizing all the features
+
+normalize <- function(x){
+  return ((x-min(x)) / (max(x)-min(x)))}
+
+retail$Administrative <- normalize(retail$Administrative)
+retail$Administrative_Duration <- normalize(retail$Administrative_Duration)
+retail$Informational <- normalize(retail$Informational)
+retail$Informational_Duration <- normalize(retail$Informational_Duration)
+retail$ProductRelated <- normalize(retail$ProductRelated)
+retail$ProductRelated_Duration <- normalize(retail$ProductRelated_Duration)
+retail$BounceRates <- normalize(retail$BounceRates)
+retail$ExitRates <- normalize(retail$ExitRates)
+retail$PageValues <- normalize(retail$PageValues)
+retail$SpecialDay <- normalize(retail$SpecialDay)
+retail$OperatingSystems <- normalize(retail$OperatingSystems)
+retail$Browser <- normalize(retail$Browser)
+retail$Region <- normalize(retail$Region)
+retail$TrafficType <- normalize(retail$TrafficType)
+```
+
+```{r}
+# Libraries to find the optimal number of clusters
+#install.packages("factoextra")
+
+library(cluster)
+library(factoextra)
+```
+```{r}
+# Plotting the optimal number of clusters
+
+fviz_nbclust(retail, kmeans, method = "silhouette")
+```
+2 is the optimal number of clusters
+
+```{r}
+# Performing clustering with a k value of 2
+
+kmeans_model = kmeans(retail, 2)
+
+# Checking the cluster centers for each attribute
+
+kmeans_model$centers
+```
+
+```{r}
+# Checking the number of observations for each cluster
+
+kmeans_model$size
+
+```
+
+```{r}
+
+# Visualising the clusters 
+
+fviz_cluster(kmeans_model, retail)
+```
+```{r}
+# Performing k-means clustering with a higher k value
+
+kmeans_model2 = kmeans(retail, 3)
+
+# Checking the number of observations for each cluster
+
+kmeans_model2$size
+
+# Visualising the clusters 
+
+fviz_cluster(kmeans_model2, retail)
+```
+### Hierarchial Clustering
+```{r}
+# Computing the euclidean distance between observations
+
+retail_dist <- dist(retail, method = "euclidean")
+```
+```{r}
+# Performing hierarchial clustering
+
+hier_model <- hclust(retail_dist, method = "ward.D2" )
+```
+```{r}
+# Visualizing the hierachical dendogram
+
+options(repr.plot.width = 11, repr.plot.height = 6)
+plot(hier_model, cex = 0.6, hang = -1)
+```
+
+# 5. Challenging the solution
+
+From the above analysis, k-means clustering performs best compared to hierarchial clustering. This is because the former has a better, more defined visual representation of the clusters, which is easy to interpret. The cluster diagram obtained from hierarchial clustering is quite complex and inconclusive which makes it difficult to extract meaningful insights from.
+
+To further improve the analysis, different optimization techniques (for instance analyzing the impact of outliers)can be applied to both clustering methods to find optimal model performance. Other clustering methods such as DBSCAN Clustering can also be investigated to challenge the solution further.
